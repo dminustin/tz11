@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Domains\Customers\Models\User;
 use App\Domains\Operations\Enums\OperationTypeEnum;
+use App\Domains\Operations\Jobs\CreateOperationJob;
 use App\Domains\Operations\Requests\CreateOperationRequest;
 use App\Domains\Operations\Services\OperationService;
 use Illuminate\Console\Command;
@@ -40,6 +41,11 @@ class CreateOperationCommand extends Command
             ['debit' => 'Начисление', 'credit' => 'Списание'],
             'debit'
         );
+        $useJob = $this->choice(
+            'Провести',
+            ['sync' => 'Сейчас', 'async' => 'Через Job-у'],
+            'sync'
+        );
         $operationType = $operationTypeInput === 'credit'
             ? OperationTypeEnum::OPERATION_TYPE_CREDIT->value
             : OperationTypeEnum::OPERATION_TYPE_DEBIT->value;
@@ -67,6 +73,11 @@ class CreateOperationCommand extends Command
             return self::FAILURE;
         }
 
+        if ($useJob === 'async') {
+            $this->info('Операция будет проведена через Job-у');
+            CreateOperationJob::dispatch($request);
+            return self::SUCCESS;
+        }
         /** @var OperationService $service */
         $service = app()->make(OperationService::class);
         $operation = $service->createOperation($request);
